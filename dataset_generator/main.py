@@ -24,9 +24,14 @@ def rect_overlap(box1: list[int], box2: list[int]) -> bool:
     return not no_collision
 
 
-def rect_distance(box1: list[int], box2: list[int]) -> float:
-    x_distance = max(0, box2[0] - box1[2], box1[0] - box2[2])
-    y_distance = max(0, box2[1] - box1[3], box1[1] - box2[3])
+def rect_distance(
+    box1: list[int],
+    box2: list[int],
+    x_diff_coef: float = 1.0,
+    y_diff_coef: float = 1.0,
+) -> float:
+    x_distance = max(0, box2[0] - box1[2], box1[0] - box2[2]) * x_diff_coef
+    y_distance = max(0, box2[1] - box1[3], box1[1] - box2[3]) * y_diff_coef
     return (x_distance**2 + y_distance**2) ** 0.5
 
 
@@ -122,7 +127,12 @@ def create_dataset_item(
         for cap_idx in range(len(caption_boxes)):
             ins_box = insert_boxes[ins_idx].xyxy[0].tolist()
             cap_box = caption_boxes[cap_idx].xyxy[0].tolist()
-            dist = rect_distance(ins_box, cap_box)
+            dist = rect_distance(
+                ins_box,
+                cap_box,
+                x_diff_coef=2.0,
+                y_diff_coef=1.0,
+            )
             ins_cap_dists[ins_idx][cap_idx] = dist
             ins_cap_class[ins_idx][cap_idx] = (
                 new_classes["Picture-caption-pair"]
