@@ -7,8 +7,8 @@ def train():
     model.train(
         data=data_path,
         epochs=100,
-        imgsz=800,
-        batch=16,
+        imgsz=640,
+        batch=64,
         name="yolov12l-doclaynet-fig-detect",
     )
     model.save("yolov12l-doclaynet-fig-detect.pt")
