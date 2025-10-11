@@ -343,6 +343,7 @@ def main(config: DatasetConfig = DatasetConfig()):
                         image=images[i],
                         usage=images_usage[i],
                         results=images_predict[i],
+                        eliminate_empty_ratio=0.9,
                     )
 
                 del images_predict
