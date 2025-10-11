@@ -91,18 +91,18 @@ def create_dataset_item(
 
     annotated_boxes.extend(
         [
-            (new_classes["Caption"],) + tuple(box.xyxyn[0].tolist())
+            (new_classes["Caption"],) + tuple(box.xywhn[0].tolist())
             for box in caption_boxes
         ]
     )
     annotated_boxes.extend(
         [
-            (new_classes["Picture"],) + tuple(box.xyxyn[0].tolist())
+            (new_classes["Picture"],) + tuple(box.xywhn[0].tolist())
             for box in picture_boxes
         ]
     )
     annotated_boxes.extend(
-        [(new_classes["Table"],) + tuple(box.xyxyn[0].tolist()) for box in table_boxes]
+        [(new_classes["Table"],) + tuple(box.xywhn[0].tolist()) for box in table_boxes]
     )
 
     figure_caption_dists = []  # (distance, figure_idx, caption_idx)
