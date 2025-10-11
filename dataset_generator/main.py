@@ -173,6 +173,7 @@ class DatasetConfig:
     train_split: float = 0.7
     val_split: float = 0.15
     test_split: float = 0.15
+    max_results: int = 100
 
 
 def main(config: DatasetConfig = DatasetConfig()):
@@ -289,7 +290,6 @@ def main(config: DatasetConfig = DatasetConfig()):
     queries = [f"cat:{cat}" for cat in categories]
     id_list = None
     start = 0
-    max_results = 15
 
     page_pool: list[
         tuple[
@@ -304,7 +304,7 @@ def main(config: DatasetConfig = DatasetConfig()):
             search_query=query,
             id_list=id_list,
             start=start,
-            max_results=max_results,
+            max_results=config.max_results,
         )
         for paper in papers:
             paper_hash = generate_short_hash(paper.id)
@@ -353,9 +353,10 @@ def main(config: DatasetConfig = DatasetConfig()):
 if __name__ == "__main__":
     config = DatasetConfig(
         dpi=150,
-        batch_size=15,
+        batch_size=100,
         train_split=0.7,
         val_split=0.15,
         test_split=0.15,
+        max_results=200,
     )
     main(config)
