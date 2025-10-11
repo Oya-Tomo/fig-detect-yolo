@@ -174,6 +174,7 @@ class DatasetConfig:
     val_split: float = 0.15
     test_split: float = 0.15
     max_results: int = 100
+    eliminate_empty_ratio: float = 0.7
 
 
 def main(config: DatasetConfig = DatasetConfig()):
@@ -358,5 +359,6 @@ if __name__ == "__main__":
         val_split=0.15,
         test_split=0.15,
         max_results=200,
+        eliminate_empty_ratio=0.95,
     )
     main(config)
