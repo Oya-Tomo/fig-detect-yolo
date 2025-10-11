@@ -42,100 +42,116 @@ def create_dataset_item(
     image: Image.Image,
     usage: str,
     results: Results,
-    remove_overlapping: bool = True,
-    create_figure_caption_pairs: bool = True,
-    figure_caption_distance_threshold: int = 100,
 ):
     image_id = f"{hash}_{page}"
 
-    # Detecting overlapping boxes
-    overlapping_boxes = []
-    for i in range(len(results.boxes)):
-        for j in range(i + 1, len(results.boxes)):
-            box1 = results.boxes[i].xyxy[0]
-            box2 = results.boxes[j].xyxy[0]
-            no_collision = (
-                box1[2] < box2[0]
-                or box1[0] > box2[2]
-                or box1[3] < box2[1]
-                or box1[1] > box2[3]
-            )
-            if not no_collision:
-                overlapping_boxes.append((i, j))
+    annotated_boxes = []
 
-    if len(overlapping_boxes) > 0 and remove_overlapping:
-        return
+    old_classes = {
+        v: k
+        for k, v in {
+            0: "Caption",
+            1: "Footnote",
+            2: "Formula",
+            3: "List-item",
+            4: "Page-footer",
+            5: "Page-header",
+            6: "Picture",
+            7: "Section-header",
+            8: "Table",
+            9: "Text",
+            10: "Title",
+        }.items()
+    }
+
+    new_classes = {
+        v: k
+        for k, v in {
+            0: "Caption",
+            1: "Picture",
+            2: "Table",
+            3: "Picture-caption-pair",
+            4: "Table-caption-pair",
+        }.items()
+    }
 
     # Auto-annotate figure-caption pairs
-    if create_figure_caption_pairs:
-        picture_boxes = [box for box in results.boxes if int(box.cls.item()) == 6]
-        # Class ID for "Picture"
-        table_boxes = [box for box in results.boxes if int(box.cls.item()) == 8]
-        # Class ID for "Table"
-        caption_boxes = [
-            box for box in results.boxes if int(box.cls.item()) == 0
-        ]  # Class ID for "Caption"
+    picture_boxes = [
+        box for box in results.boxes if int(box.cls.item()) == old_classes["Picture"]
+    ]
+    table_boxes = [
+        box for box in results.boxes if int(box.cls.item()) == old_classes["Table"]
+    ]
+    caption_boxes = [
+        box for box in results.boxes if int(box.cls.item()) == old_classes["Caption"]
+    ]
+    insert_boxes = picture_boxes + table_boxes
+    if len(insert_boxes) != len(caption_boxes):
+        return  # Skip this image if the number of figures and captions do not match
 
-        figure_boxes = picture_boxes + table_boxes
-        figure_caption_dists = []  # (distance, figure_idx, caption_idx)
+    annotated_boxes.extend(
+        [
+            (new_classes["Caption"],) + tuple(box.xyxyn[0].tolist())
+            for box in caption_boxes
+        ]
+    )
+    annotated_boxes.extend(
+        [
+            (new_classes["Picture"],) + tuple(box.xyxyn[0].tolist())
+            for box in picture_boxes
+        ]
+    )
+    annotated_boxes.extend(
+        [(new_classes["Table"],) + tuple(box.xyxyn[0].tolist()) for box in table_boxes]
+    )
 
-        for fig_idx in range(len(figure_boxes)):
-            for cap_idx in range(len(caption_boxes)):
-                fig_box = figure_boxes[fig_idx].xyxy[0].tolist()
-                cap_box = caption_boxes[cap_idx].xyxy[0].tolist()
+    figure_caption_dists = []  # (distance, figure_idx, caption_idx)
+    for ins_idx in range(len(insert_boxes)):
+        for cap_idx in range(len(caption_boxes)):
+            ins_box = insert_boxes[ins_idx].xyxy[0].tolist()
+            cap_box = caption_boxes[cap_idx].xyxy[0].tolist()
+            dist = rect_distance(ins_box, cap_box)
+            figure_caption_dists.append((dist, ins_idx, cap_idx))
 
-                dist = rect_distance(fig_box, cap_box)
-                figure_caption_dists.append((dist, fig_idx, cap_idx))
+    figure_caption_dists.sort(key=lambda x: x[0])
+    used_figures_idx = set()
+    used_captions_idx = set()
 
-        figure_caption_dists.sort(key=lambda x: x[0])
+    for dist, ins_idx, cap_idx in figure_caption_dists:
+        if ins_idx in used_figures_idx or cap_idx in used_captions_idx:
+            continue
 
-        used_figures_idx = set()
-        used_captions_idx = set()
+        used_figures_idx.add(ins_idx)
+        used_captions_idx.add(cap_idx)
 
-        figure_caption_pairs = []  # (class_id, x_center, y_center, width, height)
+        ins_box = insert_boxes[ins_idx]
+        cap_box = caption_boxes[cap_idx]
 
-        for dist, fig_idx, cap_idx in figure_caption_dists:
-            if fig_idx in used_figures_idx or cap_idx in used_captions_idx:
-                continue
-            if dist > figure_caption_distance_threshold:
-                continue
+        ins_class_id = int(ins_box.cls.item())
+        if ins_class_id == old_classes["Picture"]:
+            pair_class_id = new_classes[
+                "Picture-caption-pair"
+            ]  # Class ID for "Picture-caption-pair"
+        else:
+            pair_class_id = new_classes[
+                "Table-caption-pair"
+            ]  # Class ID for "Table-caption-pair"
 
-            used_figures_idx.add(fig_idx)
-            used_captions_idx.add(cap_idx)
-
-            fig_box = figure_boxes[fig_idx]
-            cap_box = caption_boxes[cap_idx]
-
-            fig_class_id = int(fig_box.cls.item())
-            if fig_class_id == 6:
-                pair_class_id = 11  # Class ID for "Picture-caption-pair"
-            else:
-                pair_class_id = 12  # Class ID for "Table-caption-pair"
-
-            x_min, y_min, x_max, y_max = merge_rects(
-                fig_box.xyxyn[0].tolist(),
-                cap_box.xyxyn[0].tolist(),
-            )
-            x_center = (x_min + x_max) / 2
-            y_center = (y_min + y_max) / 2
-            width = x_max - x_min
-            height = y_max - y_min
-
-            figure_caption_pairs.append(
-                (pair_class_id, x_center, y_center, width, height)
-            )
+        x_min, y_min, x_max, y_max = merge_rects(
+            ins_box.xyxyn[0].tolist(),
+            cap_box.xyxyn[0].tolist(),
+        )
+        x_center = (x_min + x_max) / 2
+        y_center = (y_min + y_max) / 2
+        width = x_max - x_min
+        height = y_max - y_min
+        annotated_boxes.append((pair_class_id, x_center, y_center, width, height))
 
     image.save(f"dataset/images/{usage}/{image_id}.png")
     with open(f"dataset/labels/{usage}/{image_id}.txt", "w") as f:
-        for result in results.boxes:
-            class_id = int(result.cls.item())
-            x_center, y_center, width, height = result.xywhn[0].tolist()
+        for box in annotated_boxes:
+            class_id, x_center, y_center, width, height = box
             f.write(f"{class_id} {x_center} {y_center} {width} {height}\n")
-
-        if create_figure_caption_pairs:
-            for pair in figure_caption_pairs:
-                class_id, x_center, y_center, width, height = pair
-                f.write(f"{class_id} {x_center} {y_center} {width} {height}\n")
 
 
 @dataclass
@@ -167,25 +183,17 @@ def main(config: DatasetConfig = DatasetConfig()):
                 "test": "images/test",
                 "names": {
                     0: "Caption",
-                    1: "Footnote",
-                    2: "Formula",
-                    3: "List-item",
-                    4: "Page-footer",
-                    5: "Page-header",
-                    6: "Picture",
-                    7: "Section-header",
-                    8: "Table",
-                    9: "Text",
-                    10: "Title",
-                    11: "Picture-caption-pair",
-                    12: "Table-caption-pair",
+                    1: "Picture",
+                    2: "Table",
+                    3: "Picture-caption-pair",
+                    4: "Table-caption-pair",
                 },
             },
             data_yaml,
             sort_keys=False,
         )
 
-    model = YOLO("yolov8m.pt")
+    model = YOLO("yolov12l-doclaynet.pt")
 
     categories = [
         "cs.AI",
