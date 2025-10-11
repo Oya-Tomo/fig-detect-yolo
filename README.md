@@ -10,3 +10,15 @@
 
 Calculate the combination that minimizes the total distance between the caption and the figure.
 `scipy.optimize.linear_sum_assignment` is used for this combination calculation.
+
+### Excluding irrelevant labels
+
+- Exclude labels below
+    - Footnote
+    - Formula
+    - List-item
+    - Page-footer
+    - Page-header
+    - Section-header
+    - Text
+    - Title
