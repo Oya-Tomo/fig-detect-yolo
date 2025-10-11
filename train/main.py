@@ -1,3 +1,5 @@
+import os
+
 from ultralytics import YOLO
 
 
@@ -10,6 +12,7 @@ def train():
         imgsz=640,
         batch=64,
         name="yolov12l-doclaynet-fig-detect",
+        project=f"{os.getcwd()}/runs",
     )
     model.save("yolov12l-doclaynet-fig-detect.pt")
 
