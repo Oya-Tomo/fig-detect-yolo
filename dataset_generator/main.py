@@ -44,6 +44,7 @@ def create_dataset_item(
     image: Image.Image,
     usage: str,
     results: Results,
+    eliminate_empty_ratio: float = 0.7,
 ):
     image_id = f"{hash}_{page}"
 
@@ -90,6 +91,9 @@ def create_dataset_item(
     insert_boxes = picture_boxes + table_boxes
     if len(insert_boxes) != len(caption_boxes):
         return  # Skip this image if the number of figures and captions do not match
+
+    if len(insert_boxes) == 0 and eliminate_empty_ratio > random.random():
+        return  # Skip this image if there is no annotation
 
     annotated_boxes.extend(
         [
