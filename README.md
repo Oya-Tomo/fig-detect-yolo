@@ -13,6 +13,8 @@ Calculate the combination that minimizes the total distance between the caption 
 
 ### Excluding irrelevant labels
 
+Filter out irrelevant class labels to improve detection accuracy
+
 - Exclude labels below
     - Footnote
     - Formula
