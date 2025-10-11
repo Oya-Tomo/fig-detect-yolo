@@ -2,6 +2,7 @@ import os
 import random
 from dataclasses import dataclass
 
+import numpy as np
 import torch
 import yaml
 from collector import (
@@ -11,6 +12,7 @@ from collector import (
     get_pdf_page_images,
 )
 from PIL import Image
+from scipy.optimize import linear_sum_assignment
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
@@ -105,47 +107,43 @@ def create_dataset_item(
         [(new_classes["Table"],) + tuple(box.xywhn[0].tolist()) for box in table_boxes]
     )
 
-    figure_caption_dists = []  # (distance, figure_idx, caption_idx)
+    ins_cap_dists = np.empty(
+        (len(insert_boxes), len(caption_boxes)), dtype=float
+    )  # dists[ins_idx][cap_idx] = distance
+    ins_cap_class = np.empty(
+        (len(insert_boxes), len(caption_boxes)), dtype=int
+    )  # class[ins_idx][cap_idx] = new_class_id
+
     for ins_idx in range(len(insert_boxes)):
         for cap_idx in range(len(caption_boxes)):
             ins_box = insert_boxes[ins_idx].xyxy[0].tolist()
             cap_box = caption_boxes[cap_idx].xyxy[0].tolist()
             dist = rect_distance(ins_box, cap_box)
-            figure_caption_dists.append((dist, ins_idx, cap_idx))
+            ins_cap_dists[ins_idx][cap_idx] = dist
+            ins_cap_class[ins_idx][cap_idx] = (
+                new_classes["Picture-caption-pair"]
+                if int(insert_boxes[ins_idx].cls.item()) == old_classes["Picture"]
+                else new_classes["Table-caption-pair"]
+            )
 
-    figure_caption_dists.sort(key=lambda x: x[0])
-    used_figures_idx = set()
-    used_captions_idx = set()
-
-    for dist, ins_idx, cap_idx in figure_caption_dists:
-        if ins_idx in used_figures_idx or cap_idx in used_captions_idx:
-            continue
-
-        used_figures_idx.add(ins_idx)
-        used_captions_idx.add(cap_idx)
-
-        ins_box = insert_boxes[ins_idx]
-        cap_box = caption_boxes[cap_idx]
-
-        ins_class_id = int(ins_box.cls.item())
-        if ins_class_id == old_classes["Picture"]:
-            pair_class_id = new_classes[
-                "Picture-caption-pair"
-            ]  # Class ID for "Picture-caption-pair"
-        else:
-            pair_class_id = new_classes[
-                "Table-caption-pair"
-            ]  # Class ID for "Table-caption-pair"
-
-        x_min, y_min, x_max, y_max = merge_rects(
-            ins_box.xyxyn[0].tolist(),
-            cap_box.xyxyn[0].tolist(),
+    ins_cap_row_idx, ins_cap_col_idx = linear_sum_assignment(ins_cap_dists)
+    for ins_idx, cap_idx in zip(ins_cap_row_idx, ins_cap_col_idx):
+        ins_box = insert_boxes[ins_idx].xyxyn[0].tolist()
+        cap_box = caption_boxes[cap_idx].xyxyn[0].tolist()
+        merged_box = merge_rects(ins_box, cap_box)
+        x_center = (merged_box[0] + merged_box[2]) / 2
+        y_center = (merged_box[1] + merged_box[3]) / 2
+        width = merged_box[2] - merged_box[0]
+        height = merged_box[3] - merged_box[1]
+        annotated_boxes.append(
+            (
+                ins_cap_class[ins_idx][cap_idx],
+                x_center,
+                y_center,
+                width,
+                height,
+            )
         )
-        x_center = (x_min + x_max) / 2
-        y_center = (y_min + y_max) / 2
-        width = x_max - x_min
-        height = y_max - y_min
-        annotated_boxes.append((pair_class_id, x_center, y_center, width, height))
 
     image.save(f"dataset/images/{usage}/{image_id}.png")
     with open(f"dataset/labels/{usage}/{image_id}.txt", "w") as f:
