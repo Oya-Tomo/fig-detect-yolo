@@ -1,0 +1,42 @@
+services:
+  dataset_generator:
+    container_name: "fig-detect-yolo-dataset-generator"
+    build: .
+    tty: true
+    shm_size: "4gb"
+    volumes:
+      - ./:/workspace
+      - venv:/workspace/.venv
+    command: ["sh", "-c", "uv sync --locked && uv run dataset_generator/main.py"]
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [utility, compute, video]
+
+  train:
+    container_name: "fig-detect-yolo-train"
+    build: .
+    tty: true
+    shm_size: "4gb"
+    volumes:
+      - ./:/workspace
+      - venv:/workspace/.venv
+    command: ["sh", "-c", "uv sync --locked && uv run train/main.py"]
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [utility, compute, video]
+
+volumes:
+  venv:
+    driver: "local"
