@@ -180,6 +180,8 @@ class DatasetConfig:
 def main(config: DatasetConfig = DatasetConfig()):
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
+    os.makedirs("dataset/papers", exist_ok=True)
+
     os.makedirs("dataset/images/train", exist_ok=True)
     os.makedirs("dataset/images/val", exist_ok=True)
     os.makedirs("dataset/images/test", exist_ok=True)
@@ -292,6 +294,32 @@ def main(config: DatasetConfig = DatasetConfig()):
     id_list = None
     start = 0
 
+    print(f"Starting downloading papers...")
+    for query in queries:
+        print(f"Query: {query}")
+        papers = collect_arxiv_papers(
+            search_query=query,
+            id_list=id_list,
+            start=start,
+            max_results=config.max_results,
+        )
+        print(f"    Found {len(papers)} papers")
+        for paper in papers:
+            print(f"    {paper.id} - {paper.title}")
+            paper_hash = generate_short_hash(paper.id)
+            pdf_path = f"dataset/papers/{paper_hash}.pdf"
+            if os.path.exists(pdf_path):
+                print(f"        PDF already exists, skipping download")
+                continue
+            if not download_pdf(paper.pdf, pdf_path):
+                print(f"        Failed to download PDF")
+
+    pdf_paths = [
+        f"dataset/papers/{file}"
+        for file in os.listdir("dataset/papers")
+        if file.endswith(".pdf")
+    ]
+
     page_pool: list[
         tuple[
             str,
@@ -300,55 +328,44 @@ def main(config: DatasetConfig = DatasetConfig()):
             str,
         ]
     ] = []  # contains (hash, page, image, usage)
-    for query in queries:
-        papers = collect_arxiv_papers(
-            search_query=query,
-            id_list=id_list,
-            start=start,
-            max_results=config.max_results,
+    for pdf_idx, pdf_path in enumerate(pdf_paths):
+        print(f"Processing {pdf_idx+1}/{len(pdf_paths)}: {pdf_path}")
+
+        paper_hash = os.path.splitext(os.path.basename(pdf_path))[0]
+
+        images = get_pdf_page_images(pdf_path, dpi=config.dpi)
+        images_usage = random.choices(
+            ["train", "val", "test"],
+            weights=[config.train_split, config.val_split, config.test_split],
+            k=len(images),
         )
-        for paper in papers:
-            paper_hash = generate_short_hash(paper.id)
+        for image_idx, image in enumerate(images):
+            page_pool.append((paper_hash, image_idx, image, images_usage[image_idx]))
 
-            pdf_path = f"{paper_hash}.pdf"
-            if not download_pdf(paper.pdf, pdf_path):
-                continue
+        if len(page_pool) < config.batch_size:
+            continue
 
-            images = get_pdf_page_images(pdf_path, dpi=config.dpi)
-            images_usage = random.choices(
-                ["train", "val", "test"],
-                weights=[config.train_split, config.val_split, config.test_split],
-                k=len(images),
-            )
-            for idx, image in enumerate(images):
-                page_pool.append((paper_hash, idx, image, images_usage[idx]))
+        for _ in range(len(page_pool) // config.batch_size):
+            batch = page_pool[: config.batch_size]
+            page_pool = page_pool[config.batch_size :]
 
-            os.remove(pdf_path)
+            paper_hashes, page_indices, images, images_usage = zip(*batch)
+            images = list(images)
+            images_usage = list(images_usage)
+            images_predict = model.predict(images)
 
-            if len(page_pool) < config.batch_size:
-                continue
+            for i in range(len(images)):
+                create_dataset_item(
+                    hash=paper_hashes[i],
+                    page=page_indices[i],
+                    image=images[i],
+                    usage=images_usage[i],
+                    results=images_predict[i],
+                    eliminate_empty_ratio=config.eliminate_empty_ratio,
+                )
 
-            for _ in range(len(page_pool) // config.batch_size):
-                batch = page_pool[: config.batch_size]
-                page_pool = page_pool[config.batch_size :]
-
-                paper_hashes, page_indices, images, images_usage = zip(*batch)
-                images = list(images)
-                images_usage = list(images_usage)
-                images_predict = model.predict(images)
-
-                for i in range(len(images)):
-                    create_dataset_item(
-                        hash=paper_hashes[i],
-                        page=page_indices[i],
-                        image=images[i],
-                        usage=images_usage[i],
-                        results=images_predict[i],
-                        eliminate_empty_ratio=0.9,
-                    )
-
-                del images_predict
-                torch.cuda.empty_cache()
+            del images_predict
+            torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":
