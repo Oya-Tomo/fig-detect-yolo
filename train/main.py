@@ -6,8 +6,6 @@ from ultralytics import YOLO
 
 
 def train():
-    subprocess.run(["yolo", "settings", "wandb=True"])
-
     if os.getenv("WANDB_API_KEY") is not None:
         wandb.login(key=os.getenv("WANDB_API_KEY"))
     else:
