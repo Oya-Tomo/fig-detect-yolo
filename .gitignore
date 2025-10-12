@@ -16,6 +16,7 @@ wheels/
 
 # Log files
 runs/
+wandb/
 
 # Dataset files
 dataset/
