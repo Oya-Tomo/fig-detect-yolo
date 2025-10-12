@@ -19,6 +19,7 @@ def train():
         epochs=300,
         imgsz=640,
         batch=64,
+        optimizer="AdamW",
         lr0=0.001,
         name="yolov12l-doclaynet-fig-detect",
         project=f"{os.getcwd()}/runs",
