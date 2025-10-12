@@ -11,4 +11,5 @@ dependencies = [
     "pyqt6>=6.9.1",
     "scipy>=1.16.2",
     "ultralytics>=8.3.209",
+    "wandb>=0.22.2",
 ]
