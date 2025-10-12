@@ -24,3 +24,16 @@ Filter out irrelevant class labels to improve detection accuracy
     - Section-header
     - Text
     - Title
+
+## Fine-tuning
+
+- base model: [yolo-doclaynet](https://huggingface.co/hantian/yolo-doclaynet)
+
+- detection classes
+    - 0: Caption
+    - 1: Picture
+    - 2: Table
+    - 3: Picture-caption-pair
+    - 4: Table-caption-pair
+
+
