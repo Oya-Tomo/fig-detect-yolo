@@ -287,6 +287,7 @@ def main(max_results: int = 200):
             max_results=max_results,
         )
         print(f"    Found {len(papers)} papers")
+        time.sleep(3)  # To respect arXiv's rate limits
         for paper in papers:
             print(f"    {paper.id} - {paper.title}")
             paper_hash = generate_short_hash(paper.id)
