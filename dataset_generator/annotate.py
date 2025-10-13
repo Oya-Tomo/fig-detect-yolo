@@ -180,8 +180,6 @@ class DatasetConfig:
 def main(config: DatasetConfig = DatasetConfig()):
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-    os.makedirs("dataset/papers", exist_ok=True)
-
     os.makedirs("dataset/images/train", exist_ok=True)
     os.makedirs("dataset/images/val", exist_ok=True)
     os.makedirs("dataset/images/test", exist_ok=True)
@@ -210,109 +208,6 @@ def main(config: DatasetConfig = DatasetConfig()):
         )
 
     model = YOLO("yolov12l-doclaynet.pt")
-
-    categories = [
-        "cs.AI",
-        "cs.AR",
-        "cs.CC",
-        "cs.CE",
-        "cs.CG",
-        "cs.CL",
-        "cs.CR",
-        "cs.CV",
-        "cs.CY",
-        "cs.DB",
-        "cs.DC",
-        "cs.DL",
-        "cs.DM",
-        "cs.DS",
-        "cs.ET",
-        "cs.FL",
-        "cs.GL",
-        "cs.GR",
-        "cs.GT",
-        "cs.HC",
-        "cs.IR",
-        "cs.IT",
-        "cs.LG",
-        "cs.LO",
-        "cs.MA",
-        "cs.MM",
-        "cs.MS",
-        "cs.NA",
-        "cs.NE",
-        "cs.NI",
-        "cs.OH",
-        "cs.OS",
-        "cs.PF",
-        "cs.PL",
-        "cs.RO",
-        "cs.SC",
-        "cs.SD",
-        "cs.SE",
-        "cs.SI",
-        "cs.SY",
-        "physics.acc-ph",
-        "physics.ao-ph",
-        "physics.app-ph",
-        "physics.atm-clus",
-        "physics.atom-ph",
-        "physics.bio-ph",
-        "physics.chem-ph",
-        "physics.class-ph",
-        "physics.comp-ph",
-        "physics.data-an",
-        "physics.ed-ph",
-        "physics.flu-dyn",
-        "physics.gen-ph",
-        "physics.geo-ph",
-        "physics.hist-ph",
-        "physics.ins-det",
-        "physics.med-ph",
-        "physics.optics",
-        "physics.plasm-ph",
-        "physics.pop-ph",
-        "physics.soc-ph",
-        "physics.space-ph",
-        "q-bio.BM",
-        "q-bio.CB",
-        "q-bio.GN",
-        "q-bio.MN",
-        "q-bio.NC",
-        "q-bio.OT",
-        "q-bio.PE",
-        "q-bio.QM",
-        "q-bio.SC",
-        "q-bio.TO",
-        "eess.AS",
-        "eess.IV",
-        "eess.SP",
-        "eess.SY",
-    ]
-
-    queries = [f"cat:{cat}" for cat in categories]
-    id_list = None
-    start = 0
-
-    print(f"Starting downloading papers...")
-    for query in queries:
-        print(f"Query: {query}")
-        papers = collect_arxiv_papers(
-            search_query=query,
-            id_list=id_list,
-            start=start,
-            max_results=config.max_results,
-        )
-        print(f"    Found {len(papers)} papers")
-        for paper in papers:
-            print(f"    {paper.id} - {paper.title}")
-            paper_hash = generate_short_hash(paper.id)
-            pdf_path = f"dataset/papers/{paper_hash}.pdf"
-            if os.path.exists(pdf_path):
-                print(f"        PDF already exists, skipping download")
-                continue
-            if not download_pdf(paper.pdf, pdf_path):
-                print(f"        Failed to download PDF")
 
     pdf_paths = [
         f"dataset/papers/{file}"
