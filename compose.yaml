@@ -7,7 +7,7 @@ services:
     volumes:
       - ./:/workspace
       - paper_collect_venv:/workspace/.venv
-    command: ["sh", "-c", "uv sync --locked && uv run paper_collect/collect.py"]
+    command: ["sh", "-c", "uv sync --locked && uv run dataset_generator/collect.py"]
 
   dataset_generator:
     container_name: "fig-detect-yolo-dataset-generator"
