@@ -1,4 +1,14 @@
 services:
+  paper_collect:
+    container_name: "fig-detect-yolo-paper-collect"
+    build: .
+    tty: true
+    shm_size: "4gb"
+    volumes:
+      - ./:/workspace
+      - paper_collect_venv:/workspace/.venv
+    command: ["sh", "-c", "uv sync --locked && uv run paper_collect/collect.py"]
+
   dataset_generator:
     container_name: "fig-detect-yolo-dataset-generator"
     build: .
@@ -6,8 +16,8 @@ services:
     shm_size: "4gb"
     volumes:
       - ./:/workspace
-      - venv:/workspace/.venv
-    command: ["sh", "-c", "uv sync --locked && uv run dataset_generator/main.py"]
+      - dataset_generator_venv:/workspace/.venv
+    command: ["sh", "-c", "uv sync --locked && uv run dataset_generator/annotate.py"]
     env_file:
       - .env
     deploy:
@@ -25,7 +35,7 @@ services:
     shm_size: "4gb"
     volumes:
       - ./:/workspace
-      - venv:/workspace/.venv
+      - train_venv:/workspace/.venv
     command: ["sh", "-c", "uv sync --locked && uv run train/main.py"]
     env_file:
       - .env
@@ -38,5 +48,11 @@ services:
               capabilities: [utility, compute, video]
 
 volumes:
-  venv:
+  paper_collect_venv:
+    driver: "local"
+  
+  dataset_generator_venv:
+    driver: "local"
+
+  train_venv:
     driver: "local"
