@@ -14,7 +14,7 @@ def train():
         print("WANDB_API_KEY not found in environment variables. Skipping wandb login.")
         raise EnvironmentError("WANDB_API_KEY not found in environment variables.")
 
-    model = YOLO("yolov12l.yaml")
+    model = YOLO("yolo12l.yaml")
     data_path = "dataset/data.yaml"
     model.train(
         data=data_path,
